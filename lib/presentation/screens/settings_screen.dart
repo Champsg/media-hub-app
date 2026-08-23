@@ -1,12 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
-import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_logo.dart';
 import '../../core/widgets/glass_card.dart';
 import '../../core/widgets/section_header.dart';
-import '../../logic/app_config_controller.dart';
 import '../../logic/providers.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -65,7 +64,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   controller: _urlController,
                   keyboardType: TextInputType.url,
                   decoration: const InputDecoration(
-                    hintText: 'http://10.0.2.2:8000',
+                    hintText: 'https://media-hub-backend-utan.onrender.com',
                     prefixIcon: Icon(Icons.dns_rounded),
                   ),
                 ),
@@ -75,8 +74,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     Expanded(
                       child: FilledButton(
                         onPressed: () async {
-                          await configController
-                              .setBaseUrl(_urlController.text);
+                          final cleanUrl = _urlController.text.trim().replaceAll(RegExp(r'/+$'), '');
+                          await configController.setBaseUrl(cleanUrl);
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
@@ -154,7 +153,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     const Spacer(),
                     Text(
-                      '${config.parallelChunks}',
+                      '',
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         color: AppColors.secondary,
@@ -167,7 +166,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   min: 1,
                   max: 8,
                   divisions: 7,
-                  label: '${config.parallelChunks}',
+                  label: '',
                   onChanged: (value) =>
                       configController.setParallelChunks(value.round()),
                 ),
@@ -204,7 +203,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                         ),
                         Text(
-                          'v1.0.0 · Flutter + FastAPI',
+                          'v1.0.0 Â· Flutter + FastAPI',
                           style: TextStyle(
                             fontSize: 12,
                             color: AppColors.textSecondary,
@@ -233,6 +232,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _check() async {
+    final cleanUrl = _urlController.text.trim().replaceAll(RegExp(r'/+$'), '');
+    if (cleanUrl.isNotEmpty) {
+      await ref.read(appConfigControllerProvider).setBaseUrl(cleanUrl);
+    }
     setState(() {
       _checking = true;
       _healthy = null;
