@@ -34,6 +34,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final extract = ref.watch(extractControllerProvider);
     final downloads = ref.watch(downloadControllerProvider);
     final active = downloads.activeTasks;
+    final failed = downloads.tasks
+        .where((task) => task.status == DownloadStatus.failed)
+        .toList();
     final completed = downloads.tasks
         .where((task) => task.status == DownloadStatus.completed)
         .toList();
@@ -90,6 +93,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
                   child: DownloadTile(task: task),
                 ),
+            if (failed.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              const SectionHeader(title: 'Failed downloads'),
+              for (final task in failed)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                  child: DownloadTile(task: task),
+                ),
+            ],
             const SizedBox(height: 18),
             const SectionHeader(title: AppStrings.recentDownloads),
             if (completed.isEmpty)

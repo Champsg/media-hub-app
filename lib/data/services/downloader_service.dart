@@ -43,6 +43,12 @@ class DownloaderService {
                 receiveTimeout: const Duration(minutes: 30),
                 followRedirects: true,
                 maxRedirects: 5,
+                headers: {
+                  'User-Agent':
+                      'Mozilla/5.0 (Linux; Android 13; MediaHub) '
+                          'AppleWebKit/537.36 (KHTML, like Gecko) '
+                          'Chrome/120.0 Mobile Safari/537.36',
+                },
               ),
             );
 
@@ -156,7 +162,12 @@ class DownloaderService {
       task.status = DownloadStatus.completed;
       task.receivedBytes = await File(task.savePath).length();
       _emit(task);
-      await MediaScanner.instance.scanFile(task.savePath);
+      try {
+        await MediaScanner.instance.scanFile(task.savePath);
+      } catch (_) {
+        // Gallery indexing is best-effort; a completed download must not be
+        // marked as failed because the platform channel was unavailable.
+      }
     } on DioException catch (e) {
       if (CancelToken.isCancel(e)) {
         task.status = _paused.contains(task.id)
@@ -196,20 +207,27 @@ class DownloaderService {
     try {
       final head = await _dio.head<dynamic>(
         url,
-        options: Options(responseType: ResponseType.bytes, headers: headers),
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: headers,
+          receiveTimeout: const Duration(seconds: 15),
+        ),
       );
       total = int.tryParse(head.headers.value('content-length') ?? '') ?? 0;
       acceptRanges =
           (head.headers.value('accept-ranges') ?? '').toLowerCase() == 'bytes';
       contentType = head.headers.value('content-type') ?? '';
     } on DioException {
+      final token = CancelToken();
       try {
-        final probe = await _dio.get<List<int>>(
+        final probe = await _dio.get<ResponseBody>(
           url,
           options: Options(
-            responseType: ResponseType.bytes,
+            responseType: ResponseType.stream,
             headers: {...?headers, 'Range': 'bytes=0-0'},
+            receiveTimeout: const Duration(seconds: 15),
           ),
+          cancelToken: token,
         );
         if (probe.statusCode == 206) {
           acceptRanges = true;
@@ -219,6 +237,9 @@ class DownloaderService {
               int.tryParse(probe.headers.value('content-length') ?? '') ?? 0;
         }
         contentType = probe.headers.value('content-type') ?? '';
+        // Never buffer the full body during a probe — abort after headers.
+        probe.data?.stream.listen((_) {}, cancelOnError: true).cancel();
+        token.cancel();
       } on DioException {
         // Both probes failed; the sequential path will surface the error.
       }

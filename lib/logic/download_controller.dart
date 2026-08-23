@@ -13,16 +13,34 @@ class DownloadController extends ChangeNotifier {
     required MediaRepository repository,
     required DownloaderService downloader,
     required ApiConfig config,
+    VoidCallback? onTaskCompleted,
   })  : _repository = repository,
         _downloader = downloader,
-        _config = config {
-    _subscription = _downloader.progressStream.listen((_) => notifyListeners());
+        _config = config,
+        _onTaskCompleted = onTaskCompleted {
+    _subscription = _downloader.progressStream.listen(_onProgress);
   }
 
   final MediaRepository _repository;
   final DownloaderService _downloader;
   final ApiConfig _config;
+  final VoidCallback? _onTaskCompleted;
   late final StreamSubscription<DownloadProgress> _subscription;
+  final Map<String, DownloadStatus> _lastStatus = {};
+
+  void _onProgress(DownloadProgress progress) {
+    final task = _downloader.taskById(progress.taskId);
+    if (task != null) {
+      final previous = _lastStatus[task.id];
+      if (previous != task.status) {
+        if (task.status == DownloadStatus.completed) {
+          _onTaskCompleted?.call();
+        }
+        _lastStatus[task.id] = task.status;
+      }
+    }
+    notifyListeners();
+  }
 
   List<DownloadTask> get tasks => _downloader.tasks;
 

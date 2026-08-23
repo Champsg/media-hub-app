@@ -49,6 +49,7 @@ final downloadControllerProvider = ChangeNotifierProvider<DownloadController>(
     repository: ref.watch(mediaRepositoryProvider),
     downloader: ref.watch(downloaderServiceProvider),
     config: ref.watch(apiConfigProvider),
+    onTaskCompleted: () => ref.read(libraryControllerProvider).refresh(),
   ),
 );
 

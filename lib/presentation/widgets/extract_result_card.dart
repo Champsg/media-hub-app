@@ -18,8 +18,7 @@ class ExtractResultCard extends ConsumerWidget {
   Future<void> _download(BuildContext context, WidgetRef ref) async {
     final format = await showFormatPickerSheet(context, result);
     if (format == null) return;
-    final fileName =
-        result.suggestedFilename ?? '${result.title}.${format.ext}';
+    final fileName = _fileNameFor(result, format);
     await ref
         .read(downloadControllerProvider)
         .start(url: format.url, fileName: fileName, isHls: format.isHls);
@@ -29,6 +28,14 @@ class ExtractResultCard extends ConsumerWidget {
         const SnackBar(content: Text('Download started')),
       );
     }
+  }
+
+  String _fileNameFor(ExtractResult result, MediaFormat format) {
+    final suggested = result.suggestedFilename;
+    final base = suggested == null
+        ? result.title
+        : suggested.replaceAll(RegExp(r'\.[^.]*$'), '');
+    return '$base.${format.ext}';
   }
 
   Future<void> _copyLink(BuildContext context) async {

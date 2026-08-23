@@ -14,7 +14,7 @@ class MediaScanner {
       final result =
           await _channel.invokeMethod<bool>('scanFile', {'path': path});
       return result ?? false;
-    } on PlatformException {
+    } catch (_) {
       return false;
     }
   }
@@ -24,7 +24,7 @@ class MediaScanner {
       final result =
           await _channel.invokeMethod<int>('scanDir', {'path': path});
       return result ?? 0;
-    } on PlatformException {
+    } catch (_) {
       return 0;
     }
   }
