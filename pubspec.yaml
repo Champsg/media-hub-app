@@ -1,5 +1,5 @@
 ﻿name: media_hub
-description: "Media Hub â€” universal media grabber, HLS stitcher, smart browser and offline media manager."
+description: "Media Hub - universal media grabber, HLS stitcher, smart browser and offline media manager."
 publish_to: "none"
 version: 1.0.0+1
 
@@ -19,7 +19,6 @@ dependencies:
   webview_flutter: ^4.8.0
   cached_network_image: ^3.4.0
   share_plus: ^10.1.4
-  package_info_plus: ^10.2.1
   cross_file: ^0.3.4
   wakelock_plus: ^1.2.8
   shared_preferences: ^2.2.3
