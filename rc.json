@@ -1,0 +1,22 @@
+{
+  "parameters": {
+    "force_update_version": {
+      "defaultValue": {
+        "value": "1.0.5"
+      },
+      "valueType": "STRING"
+    },
+    "android_update_url": {
+      "defaultValue": {
+        "value": "https://play.google.com/store/apps/details?id=com.vidkwaii.app"
+      },
+      "valueType": "STRING"
+    },
+    "ios_update_url": {
+      "defaultValue": {
+        "value": "https://apps.apple.com/app/id"
+      },
+      "valueType": "STRING"
+    }
+  }
+}

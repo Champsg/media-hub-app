@@ -1,0 +1,25 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "vidkwaii-app-2101013658",
+          "appId": "1:484937910540:android:591eb5329cdb991c00e129",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "vidkwaii-app-2101013658",
+          "configurations": {
+            "android": "1:484937910540:android:591eb5329cdb991c00e129",
+            "ios": "1:484937910540:ios:b5630ae191ec446200e129"
+          }
+        }
+      }
+    }
+  },
+  "remoteconfig": {
+    "template": "rc.json"
+  }
+}

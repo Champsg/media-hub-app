@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VidKwaii - Server Switch</title>
+<style>
+  :root {
+    --bg: #06060f; --surface: #0d0d1a; --surface2: #161628; --border: #2a2a4a;
+    --text: #f5f0ff; --muted: #9d8fbf; --accent: #ff7eb3; --primary: #c084fc;
+    --ok: #4ade80; --warn: #fbbf24; --bad: #fb7185;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px 18px 60px; background: var(--bg); color: var(--text);
+    font: 15px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 820px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -.3px; }
+  h1 span { background: linear-gradient(120deg, var(--accent), var(--primary)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub { color: var(--muted); margin: 0 0 22px; font-size: 13px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px; margin-bottom: 16px; }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); margin: 0 0 12px; }
+  .live { font-size: 18px; font-weight: 700; word-break: break-all; }
+  .live small { display: block; font-weight: 400; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 10px 8px; border-top: 1px solid var(--border); vertical-align: middle; }
+  tr:first-child td { border-top: none; }
+  .url { font-family: ui-monospace, Consolas, monospace; font-size: 13px; word-break: break-all; }
+  .tag { font-size: 11px; padding: 2px 7px; border-radius: 6px; background: var(--surface2); color: var(--muted); margin-left: 6px; }
+  .tag.active { color: #06060f; background: var(--ok); font-weight: 700; }
+  button {
+    font: inherit; font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--surface2); color: var(--text); cursor: pointer;
+  }
+  button:hover { border-color: var(--primary); }
+  button.primary { background: linear-gradient(120deg, var(--accent), var(--primary)); color: #fff; border: none; }
+  button.tiny { padding: 5px 9px; font-size: 12px; }
+  input {
+    font: inherit; font-size: 14px; padding: 10px 12px; border-radius: 10px; color: var(--text);
+    background: var(--surface2); border: 1px solid var(--border); width: 100%;
+  }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .row > input { flex: 1 1 220px; }
+  .hint { color: var(--muted); font-size: 12px; margin: 10px 0 0; }
+  .status { font-size: 12px; color: var(--muted); }
+  .status.ok { color: var(--ok); } .status.bad { color: var(--bad); } .status.warn { color: var(--warn); }
+  #log { margin-top: 4px; }
+  #log div { font-family: ui-monospace, Consolas, monospace; font-size: 12px; padding: 7px 10px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); margin-top: 8px; color: var(--muted); }
+  #log div.ok { color: var(--ok); border-color: rgba(74,222,128,.35); }
+  #log div.bad { color: var(--bad); border-color: rgba(251,113,133,.35); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>VidKwaii <span>Server Switch</span></h1>
+  <p class="sub">Changes the backend address the app reads at startup. Takes effect within ~5 minutes. No app release needed, and a bad address can't break the app - it verifies the server answers before switching.</p>
+
+  <div class="card">
+    <h2>Live config</h2>
+    <div class="live" id="live">Loading...</div>
+    <div class="row" style="margin-top:14px">
+      <button id="reload">Reload from GitHub</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Servers</h2>
+    <table id="servers"></table>
+    <div class="row" style="margin-top:14px">
+      <input id="newLabel" placeholder="Label (e.g. Lightsail)">
+      <input id="newUrl" placeholder="http://1.2.3.4">
+      <button id="addServer">Add</button>
+    </div>
+    <p class="hint">Test pings /health on that server. Switch writes the address to config.json in your GitHub repo.</p>
+  </div>
+
+  <div class="card">
+    <h2>GitHub access</h2>
+    <input id="token" type="password" placeholder="Fine-grained token with Contents: Read and write">
+    <div class="row" style="margin-top:12px">
+      <button id="saveToken" class="primary">Save token</button>
+      <button id="forgetToken">Forget token</button>
+      <span class="status" id="tokenState"></span>
+    </div>
+    <p class="hint">Stored only in this browser on this PC, and sent only to api.github.com. Create it at github.com -&gt; Settings -&gt; Developer settings -&gt; Fine-grained tokens, scoped to the single repo Champsg/media-hub-app with Contents: Read and write.</p>
+    <p class="hint" id="setup"></p>
+  </div>
+
+  <div id="log"></div>
+</div>
+
+<script>
+const REPO = 'Champsg/media-hub-app';
+const BRANCH = 'main';
+const RAW_URL = 'https://raw.githubusercontent.com/' + REPO + '/' + BRANCH + '/config.json';
+const API_URL = 'https://api.github.com/repos/' + REPO + '/contents/config.json';
+
+const LS_TOKEN = 'vk_gh_token';
+const LS_SERVERS = 'vk_servers';
+
+const DEFAULT_COMMENT = 'Live backend address for VidKwaii. Managed from the Server Switch panel.';
+let liveConfig = null;
+
+function log(message, kind) {
+  const el = document.createElement('div');
+  if (kind) el.className = kind;
+  el.textContent = new Date().toLocaleTimeString() + '  ' + message;
+  const box = document.getElementById('log');
+  box.prepend(el);
+  while (box.children.length > 12) box.removeChild(box.lastChild);
+}
+
+function getToken() { return localStorage.getItem(LS_TOKEN) || ''; }
+
+function getServers() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(LS_SERVERS) || '[]');
+    if (Array.isArray(parsed) && parsed.length) return parsed;
+  } catch (e) {}
+  const seed = [];
+  if (liveConfig && liveConfig.api_base_url) seed.push({ label: 'Current', url: liveConfig.api_base_url });
+  return seed;
+}
+
+function saveServers(list) { localStorage.setItem(LS_SERVERS, JSON.stringify(list)); }
+
+function encodeJson(text) {
+  return btoa(unescape(encodeURIComponent(text)));
+}
+
+function decodeJson(b64) {
+  return decodeURIComponent(escape(atob(b64.replace(/\n/g, ''))));
+}
+
+async function withTimeout(promise, ms) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try { return await promise(controller.signal); } finally { clearTimeout(timer); }
+}
+
+async function loadLive() {
+  document.getElementById('live').textContent = 'Loading...';
+  try {
+    const res = await withTimeout((signal) => fetch(RAW_URL + '?t=' + Date.now(), { signal }), 12000);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    liveConfig = await res.json();
+    document.getElementById('live').innerHTML =
+      (liveConfig.api_base_url || '(missing api_base_url)') +
+      '<small>from ' + REPO + '/' + BRANCH + '/config.json - updated ' + (liveConfig.updated || 'unknown') + '</small>';
+    log('Loaded live config: ' + liveConfig.api_base_url, 'ok');
+    renderServers();
+  } catch (err) {
+    document.getElementById('live').textContent = 'Could not load config';
+    log('Failed to load config: ' + err.message, 'bad');
+  }
+}
+
+function renderServers() {
+  const servers = getServers();
+  const active = liveConfig && liveConfig.api_base_url ? liveConfig.api_base_url.replace(/\/+$/, '') : '';
+  const table = document.getElementById('servers');
+  table.innerHTML = '';
+  if (!servers.length) {
+    table.innerHTML = '<tr><td class="status">No servers saved yet - add one below.</td></tr>';
+    return;
+  }
+  servers.forEach((server, index) => {
+    const url = server.url.replace(/\/+$/, '');
+    const tr = document.createElement('tr');
+    const isActive = url === active;
+    tr.innerHTML =
+      '<td><div class="url">' + url + '</div>' +
+      '<div class="status">' + (server.label || 'Server') + (isActive ? '<span class="tag active">LIVE</span>' : '') + '</div></td>' +
+      '<td id="status-' + index + '" class="status" style="width:150px"></td>';
+    const actions = document.createElement('td');
+    actions.style.textAlign = 'right';
+    actions.style.whiteSpace = 'nowrap';
+
+    const testBtn = document.createElement('button');
+    testBtn.className = 'tiny';
+    testBtn.textContent = 'Test';
+    testBtn.onclick = () => testServer(url, index);
+
+    const switchBtn = document.createElement('button');
+    switchBtn.className = 'tiny primary';
+    switchBtn.textContent = 'Switch';
+    switchBtn.style.marginLeft = '6px';
+    switchBtn.disabled = isActive;
+    switchBtn.onclick = () => switchTo(url);
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'tiny';
+    delBtn.textContent = 'x';
+    delBtn.style.marginLeft = '6px';
+    delBtn.onclick = () => {
+      const list = getServers().filter((_, i) => i !== index);
+      saveServers(list);
+      renderServers();
+    };
+
+    actions.appendChild(testBtn);
+    actions.appendChild(switchBtn);
+    actions.appendChild(delBtn);
+    tr.appendChild(actions);
+    table.appendChild(tr);
+  });
+}
+
+async function testServer(url, index) {
+  const cell = document.getElementById('status-' + index);
+  cell.className = 'status warn';
+  cell.textContent = 'testing...';
+  const started = performance.now();
+  try {
+    const res = await withTimeout((signal) => fetch(url + '/health', { signal }), 10000);
+    const ms = Math.round(performance.now() - started);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const redis = data.redis === true ? 'redis ok' : 'redis off';
+    const ffmpeg = data.ffmpeg ? 'ffmpeg ok' : 'no ffmpeg';
+    cell.className = 'status ok';
+    cell.textContent = 'online ' + ms + 'ms';
+    log(url + ' - ' + (data.service || 'ok') + ' v' + (data.version || '?') + ', ' + redis + ', ' + ffmpeg, 'ok');
+  } catch (err) {
+    cell.className = 'status bad';
+    cell.textContent = 'no answer';
+    log(url + ' - no answer: ' + err.message, 'bad');
+  }
+}
+
+async function switchTo(url) {
+  const token = getToken();
+  if (!token) {
+    log('Add your GitHub token below first.', 'bad');
+    return;
+  }
+  try {
+    log('Switching to ' + url + ' ...');
+    const current = await withTimeout((signal) => fetch(API_URL + '?ref=' + BRANCH, {
+      signal,
+      headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json' },
+    }), 15000);
+    if (!current.ok) throw new Error('GitHub read failed (HTTP ' + current.status + ')');
+    const meta = await current.json();
+    const existing = JSON.parse(decodeJson(meta.content));
+    const updated = {
+      api_base_url: url,
+      _comment: existing._comment || DEFAULT_COMMENT,
+      updated: new Date().toISOString().slice(0, 10),
+    };
+    const put = await withTimeout((signal) => fetch(API_URL, {
+      method: 'PUT',
+      signal,
+      headers: {
+        Authorization: 'Bearer ' + token,
+        Accept: 'application/vnd.github+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: 'Switch backend to ' + url,
+        content: encodeJson(JSON.stringify(updated, null, 2) + '\n'),
+        sha: meta.sha,
+        branch: BRANCH,
+      }),
+    }), 20000);
+    if (!put.ok) {
+      const detail = await put.text();
+      throw new Error('GitHub write failed (HTTP ' + put.status + ') ' + detail.slice(0, 140));
+    }
+    log('Switched to ' + url + '. App picks it up within ~5 minutes.', 'ok');
+    setTimeout(loadLive, 1500);
+  } catch (err) {
+    log('Switch failed: ' + err.message, 'bad');
+  }
+}
+
+document.getElementById('reload').onclick = loadLive;
+
+document.getElementById('addServer').onclick = () => {
+  const label = document.getElementById('newLabel').value.trim();
+  const url = document.getElementById('newUrl').value.trim().replace(/\/+$/, '');
+  if (!url) { log('Enter a server URL first.', 'bad'); return; }
+  if (!/^https?:\/\/.+/i.test(url)) { log('URL must start with http:// or https://', 'bad'); return; }
+  const list = getServers();
+  if (list.some((s) => s.url.replace(/\/+$/, '') === url)) { log('That server is already in the list.', 'bad'); return; }
+  list.push({ label: label || url, url });
+  saveServers(list);
+  document.getElementById('newLabel').value = '';
+  document.getElementById('newUrl').value = '';
+  renderServers();
+  log('Added ' + url, 'ok');
+};
+
+document.getElementById('saveToken').onclick = async () => {
+  const value = document.getElementById('token').value.trim();
+  if (!value) { log('Paste a token first.', 'bad'); return; }
+  localStorage.setItem(LS_TOKEN, value);
+  document.getElementById('token').value = '';
+  log('Token saved in this browser.', 'ok');
+  const ok = await verifyToken();
+  updateSetup();
+  if (ok) log('Token verified - the Switch buttons are ready.', 'ok');
+};
+
+document.getElementById('forgetToken').onclick = () => {
+  localStorage.removeItem(LS_TOKEN);
+  updateTokenState();
+  log('Token removed from this browser.', 'ok');
+};
+
+function updateTokenState() {
+  const saved = !!getToken();
+  if (!saved) {
+    document.getElementById('tokenState').textContent = 'no token yet';
+    document.getElementById('tokenState').className = 'status warn';
+  }
+}
+
+async function verifyToken() {
+  const token = getToken();
+  const state = document.getElementById('tokenState');
+  if (!token) { updateTokenState(); return false; }
+  state.className = 'status warn';
+  state.textContent = 'checking token...';
+  try {
+    const res = await withTimeout((signal) => fetch(API_URL + '?ref=' + BRANCH, {
+      signal,
+      headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json' },
+    }), 15000);
+    if (res.status === 401) throw new Error('token rejected (401) - regenerate it');
+    if (res.status === 403) throw new Error('token has no permission (403) - needs Contents: Read and write');
+    if (res.status === 404) throw new Error('repo not visible to this token (404) - check the repository access setting');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    state.className = 'status ok';
+    state.textContent = 'token works';
+    return true;
+  } catch (err) {
+    state.className = 'status bad';
+    state.textContent = 'token problem';
+    log('Token check failed: ' + err.message, 'bad');
+    return false;
+  }
+}
+
+function updateSetup() {
+  const el = document.getElementById('setup');
+  if (!el) return;
+  const hasToken = !!getToken();
+  el.innerHTML = 'Config channel: <b>live</b>' + ' &nbsp;&middot;&nbsp; Switching: ' +
+    (hasToken ? '<b>ready</b>' : '<b>needs a token</b> below') +
+    ' &nbsp;&middot;&nbsp; Apps obey this from version <b>1.0.4</b> onward.';
+}
+
+updateTokenState();
+updateSetup();
+loadLive();
+if (getToken()) { verifyToken().then(updateSetup); }
+</script>
+</body>
+</html>

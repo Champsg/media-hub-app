@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "484937910540",
+    "project_id": "vidkwaii-app-2101013658",
+    "storage_bucket": "vidkwaii-app-2101013658.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:484937910540:android:591eb5329cdb991c00e129",
+        "android_client_info": {
+          "package_name": "com.vidkwaii.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCp-MdH6-bfyOe9VxdMIL4wTRMaPMdP1KE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

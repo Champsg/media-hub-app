@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/theme/app_theme.dart';
 import 'logic/providers.dart';
+import 'presentation/force_update_wrapper.dart';
 import 'presentation/home_shell.dart';
 
 class VidKwaiiApp extends ConsumerWidget {
@@ -22,7 +23,7 @@ class VidKwaiiApp extends ConsumerWidget {
       title: 'VidKwaii',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark(),
-      home: const HomeShell(),
+      home: const ForceUpdateWrapper(child: HomeShell()),
     );
   }
 }

@@ -6,7 +6,8 @@ class AppConfig {
   static const String tagline = 'Grab · Stitch · Play';
 
   /// AWS Lightsail Backend API URL
-  static const String defaultApiBaseUrl = 'http://65.0.74.190';
+  static const String defaultApiBaseUrl =
+      'https://vidkwaii-api-gateway.shujaatbhat8.workers.dev';
 
   static const int defaultParallelChunks = 4;
   static const int maxParallelChunks = 8;

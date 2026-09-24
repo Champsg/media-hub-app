@@ -1,0 +1,10 @@
+name = "vidkwaii-api-gateway"
+main = "src/index.js"
+compatibility_date = "2026-09-24"
+
+# Stable API address for the app. After deploying, add a custom domain route
+# (e.g. api.yourapp.com) in the Cloudflare dashboard:
+#   Workers & Pages -> vidkwaii-api-gateway -> Settings -> Domains & Routes
+#
+# Backends are listed in src/index.js (ORIGINS). A backup entry can be added
+# at any time and takes effect on the next deploy.

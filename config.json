@@ -1,5 +1,5 @@
 {
-  "api_base_url": "http://65.0.74.190",
+  "api_base_url": "https://vidkwaii-api-gateway.shujaatbhat8.workers.dev",
   "_comment": "Live backend address for VidKwaii. Edit api_base_url and commit on github.com — installed apps pick the change up within ~5 minutes, no Play Store release needed. Leave this file valid JSON.",
   "updated": "2026-09-23"
 }

@@ -1,0 +1,10 @@
+name = "vidkwaii-server-switch"
+main = "src/index.js"
+compatibility_date = "2026-09-24"
+
+# The panel needs two secrets. Set them once with:
+#   npx wrangler secret put ADMIN_PASSWORD
+#   npx wrangler secret put GITHUB_TOKEN
+#
+# Nothing else is required. The Worker writes to the same config.json your app
+# already reads, so the app needs no update to follow a switch.
