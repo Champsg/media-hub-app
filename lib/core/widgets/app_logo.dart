@@ -9,46 +9,46 @@ class AppLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final icon = Container(
-      width: compact ? 34 : 42,
-      height: compact ? 34 : 42,
+    final size = compact ? 36.0 : 42.0;
+
+    final avatar = Container(
+      width: size,
+      height: size,
       decoration: BoxDecoration(
-        gradient: AppTheme.brandGradient,
-        borderRadius: BorderRadius.circular(compact ? 10 : 13),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withOpacity(0.35),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(compact ? 10 : 12),
+        border: Border.all(
+          color: AppColors.border,
+          width: 1,
+        ),
       ),
-      child: const Icon(Icons.download_rounded, color: Colors.white),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(compact ? 9 : 11),
+        child: Image.asset(
+          'assets/mascot/mascot_hero.jpg',
+          fit: BoxFit.cover,
+        ),
+      ),
     );
 
-    if (compact) return icon;
+    if (compact) return avatar;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        icon,
+        avatar,
         const SizedBox(width: 12),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'Media Hub',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.2,
-                  ),
-            ),
-            Text(
-              'Grab · Stitch · Play',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                    letterSpacing: 0.6,
-                  ),
+            const Text(
+              'VidKwaii',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.3,
+                height: 1.1,
+              ),
             ),
           ],
         ),

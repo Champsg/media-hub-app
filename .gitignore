@@ -1,4 +1,4 @@
-﻿.dart_tool/
+.dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
 .packages
@@ -7,6 +7,8 @@
 /build/
 ios/.generated/
 android/.gradle
+android/.kotlin/
+android/build/
 android/local.properties
 android/app/debug
 android/app/profile
@@ -15,3 +17,6 @@ android/app/release
 *.aab
 *.keystore
 *.jks
+# Android release signing
+android/key.properties
+android/app/*.jks

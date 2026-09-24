@@ -24,7 +24,7 @@ class HlsStitcher {
                 followRedirects: true,
                 headers: {
                   'User-Agent':
-                      'Mozilla/5.0 (Linux; Android 13; MediaHub) '
+                      'Mozilla/5.0 (Linux; Android 13; VidKwaii) '
                           'AppleWebKit/537.36 (KHTML, like Gecko) '
                           'Chrome/120.0 Mobile Safari/537.36',
                 },

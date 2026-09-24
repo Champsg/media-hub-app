@@ -51,8 +51,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
           DeviceOrientation.portraitUp,
         ],
         materialProgressColors: ChewieProgressColors(
-          playedColor: AppColors.primary,
-          handleColor: AppColors.primary,
+          playedColor: AppColors.accent,
+          handleColor: AppColors.accent,
           bufferedColor: AppColors.border,
           backgroundColor: AppColors.surfaceHigh,
         ),
@@ -90,6 +90,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
+        backgroundColor: Colors.black,
         title: Text(
           widget.title,
           maxLines: 1,
@@ -97,16 +98,25 @@ class _PlayerScreenState extends State<PlayerScreen> {
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         ),
         actions: [
-          IconButton(
-            tooltip: AppStrings.keepScreenOn,
-            onPressed: () => _applyKeepScreenOn(!_keepScreenOn),
-            icon: Icon(
-              _keepScreenOn
-                  ? Icons.screen_lock_portrait_rounded
-                  : Icons.screen_lock_portrait_outlined,
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
               color: _keepScreenOn
-                  ? AppColors.secondary
-                  : AppColors.textSecondary,
+                  ? AppColors.accent.withValues(alpha: 0.12)
+                  : Colors.transparent,
+            ),
+            child: IconButton(
+              tooltip: AppStrings.keepScreenOn,
+              onPressed: () => _applyKeepScreenOn(!_keepScreenOn),
+              icon: Icon(
+                _keepScreenOn
+                    ? Icons.screen_lock_portrait_rounded
+                    : Icons.screen_lock_portrait_outlined,
+                color: _keepScreenOn
+                    ? AppColors.accent
+                    : AppColors.textSecondary,
+              ),
             ),
           ),
         ],
@@ -118,14 +128,37 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.error_outline_rounded,
-                      color: AppColors.danger,
-                      size: 44,
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.danger.withValues(alpha: 0.2),
+                            blurRadius: 24,
+                          ),
+                        ],
+                      ),
+                      child: ClipOval(
+                        child: Image.asset(
+                          'assets/mascot/mascot_empty.jpg',
+                          fit: BoxFit.cover,
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Could not play this file',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     Text(
-                      'Could not play this file\n$_error',
+                      '$_error',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 13,
@@ -136,7 +169,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 ),
               )
             : _chewieController == null
-                ? const CircularProgressIndicator()
+                ? SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      color: AppColors.accent,
+                    ),
+                  )
                 : Chewie(controller: _chewieController!),
       ),
     );

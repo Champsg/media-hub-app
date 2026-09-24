@@ -7,7 +7,7 @@ class SectionHeader extends StatelessWidget {
     super.key,
     required this.title,
     this.trailing,
-    this.padding = const EdgeInsets.fromLTRB(20, 4, 20, 8),
+    this.padding = const EdgeInsets.fromLTRB(20, 4, 20, 10),
   });
 
   final String title;
@@ -20,15 +20,6 @@ class SectionHeader extends StatelessWidget {
       padding: padding,
       child: Row(
         children: [
-          Container(
-            width: 4,
-            height: 18,
-            decoration: BoxDecoration(
-              gradient: AppTheme.brandGradient,
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-          const SizedBox(width: 10),
           Expanded(
             child: Text(
               title,
@@ -36,6 +27,7 @@ class SectionHeader extends StatelessWidget {
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textPrimary,
+                fontStyle: FontStyle.italic,
               ),
             ),
           ),

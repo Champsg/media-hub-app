@@ -2,8 +2,9 @@
 class AppStrings {
   AppStrings._();
 
-  static const String appName = 'Media Hub';
+  static const String appName = 'VidKwaii';
   static const String clipboardFound = 'Link detected in clipboard';
+  static const String instagramOnly = 'Only Instagram links are allowed.';
   static const String extract = 'Extract';
   static const String extracting = 'Extracting…';
   static const String paste = 'Paste';
@@ -19,12 +20,10 @@ class AppStrings {
   static const String noActiveDownloads = 'Nothing downloading right now.';
   static const String library = 'Library';
   static const String emptyLibrary =
-      'Downloads and saved statuses appear here once you grab something.';
+      'Videos you save appear here so you can play them offline.';
   static const String browser = 'Browser';
-  static const String vault = 'Status Vault';
-  static const String settings = 'Settings';
-  static const String serverUrl = 'Backend server URL';
-  static const String parallelChunks = 'Parallel chunks';
+  static const String rightsNotice =
+      'Only download videos you created or have permission to save.';
   static const String keepScreenOn = 'Keep screen on during playback';
   static const String hlsBadge = 'HLS';
   static const String directBadge = 'Direct';

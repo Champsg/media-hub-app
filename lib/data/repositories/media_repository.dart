@@ -31,6 +31,9 @@ class MediaRepository {
   Future<DownloadTask> download({
     required String url,
     required String fileName,
+    String? audioUrl,
+    Map<String, String>? headers,
+    Map<String, String>? audioHeaders,
     bool isHls = false,
     int parallelChunks = AppConfig.defaultParallelChunks,
     String? directory,
@@ -39,6 +42,9 @@ class MediaRepository {
     return _downloader.start(
       DownloadRequest(
         url: url,
+        audioUrl: audioUrl,
+        headers: headers,
+        audioHeaders: audioHeaders,
         fileName: fileName,
         saveDirectory: dir,
         parallelChunks: parallelChunks,

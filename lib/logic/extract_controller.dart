@@ -3,6 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models/extract_result.dart';
 import '../data/repositories/media_repository.dart';
+import '../core/utils/url_utils.dart';
+import '../core/constants/app_strings.dart';
+
+class InstagramOnlyException implements Exception {
+  @override
+  String toString() => AppStrings.instagramOnly;
+}
 
 /// Drives metadata extraction and exposes the result as an AsyncValue.
 class ExtractController extends ChangeNotifier {
@@ -16,6 +23,15 @@ class ExtractController extends ChangeNotifier {
   Future<void> extract(String url) async {
     final trimmed = url.trim();
     if (trimmed.isEmpty) return;
+    if (!UrlUtils.isInstagramUrl(trimmed)) {
+      state = AsyncValue.error(
+        InstagramOnlyException(),
+        StackTrace.current,
+      );
+      lastUrl = trimmed;
+      notifyListeners();
+      return;
+    }
     lastUrl = trimmed;
     state = const AsyncValue.loading();
     notifyListeners();

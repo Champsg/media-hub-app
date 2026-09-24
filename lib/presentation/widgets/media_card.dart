@@ -21,8 +21,9 @@ class MediaCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GlassCard(
       padding: const EdgeInsets.all(12),
-      radius: 18,
+      radius: 20,
       onTap: onTap,
+      glowColor: _glowColorFor(item.kind),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -34,17 +35,29 @@ class MediaCard extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    AppColors.surfaceHigh.withOpacity(0.9),
-                    AppColors.primary.withOpacity(0.22),
+                    AppColors.surfaceHigh.withValues(alpha: 0.9),
+                    _colorFor(item.kind).withValues(alpha: 0.18),
                   ],
                 ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: _colorFor(item.kind).withValues(alpha: 0.2),
+                ),
               ),
-              child: Icon(
-                _iconFor(item.kind),
-                size: 42,
-                color: _colorFor(item.kind),
+              child: Center(
+                child: ShaderMask(
+                  shaderCallback: (bounds) => LinearGradient(
+                    colors: [
+                      _colorFor(item.kind),
+                      _colorFor(item.kind).withValues(alpha: 0.6),
+                    ],
+                  ).createShader(bounds),
+                  child: Icon(
+                    _iconFor(item.kind),
+                    size: 42,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ),
           ),
@@ -91,13 +104,26 @@ class MediaCard extends StatelessWidget {
   Color _colorFor(MediaKind kind) {
     switch (kind) {
       case MediaKind.video:
-        return AppColors.primary;
-      case MediaKind.audio:
         return AppColors.accent;
+      case MediaKind.audio:
+        return AppColors.primary;
       case MediaKind.image:
         return AppColors.secondary;
       case MediaKind.other:
         return AppColors.textSecondary;
+    }
+  }
+
+  Color _glowColorFor(MediaKind kind) {
+    switch (kind) {
+      case MediaKind.video:
+        return AppColors.accent;
+      case MediaKind.audio:
+        return AppColors.primary;
+      case MediaKind.image:
+        return AppColors.secondary;
+      case MediaKind.other:
+        return AppColors.textFaint;
     }
   }
 }

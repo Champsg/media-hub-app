@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/url_utils.dart';
 import '../../data/models/download_task.dart';
 import '../../data/services/web_sniffer.dart';
+import '../../core/constants/app_strings.dart';
 import '../../logic/providers.dart';
 import '../widgets/floating_download_button.dart';
 import '../widgets/format_picker_sheet.dart';
@@ -19,8 +20,10 @@ class BrowserScreen extends ConsumerStatefulWidget {
 
 class _BrowserScreenState extends ConsumerState<BrowserScreen> {
   late final WebViewController _webController;
+  final TextEditingController _urlBarController = TextEditingController();
   int _progress = 0;
   String? _lastError;
+  bool _urlBarFocused = false;
 
   @override
   void initState() {
@@ -36,9 +39,23 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
       )
       ..setNavigationDelegate(
         NavigationDelegate(
+          onNavigationRequest: (request) {
+            final uri = Uri.tryParse(request.url);
+            final scheme = uri?.scheme.toLowerCase() ?? '';
+            // Keep everything inside this app's WebView. Only http/https may
+            // navigate here; anything else (instagram://, intent://,
+            // market://, etc.) is denied so Android never hands it to the
+            // default browser or another app.
+            return (scheme == 'http' || scheme == 'https')
+                ? NavigationDecision.navigate
+                : NavigationDecision.prevent;
+          },
           onPageStarted: (url) {
             ref.read(browserControllerProvider).setUrl(url);
-            setState(() => _lastError = null);
+            setState(() {
+              _lastError = null;
+              if (!_urlBarFocused) _urlBarController.text = url;
+            });
           },
           onProgress: (progress) => setState(() => _progress = progress),
           onPageFinished: (_) {
@@ -52,7 +69,13 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
           },
         ),
       )
-      ..loadRequest(Uri.parse('https://www.google.com'));
+      ..loadRequest(Uri.parse('https://www.instagram.com'));
+  }
+
+  @override
+  void dispose() {
+    _urlBarController.dispose();
+    super.dispose();
   }
 
   Future<void> _injectSniffer() async {
@@ -80,70 +103,180 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
     await _webController.reload();
   }
 
+  void _navigateToUrl(String input) {
+    var url = input.trim();
+    if (url.isEmpty) return;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      // Treat as search or add https
+      if (url.contains('.') && !url.contains(' ')) {
+        url = 'https://$url';
+      } else {
+        url = 'https://www.google.com/search?q=${Uri.encodeQueryComponent(url)}';
+      }
+    }
+    _webController.loadRequest(Uri.parse(url));
+    FocusScope.of(context).unfocus();
+  }
+
   @override
   Widget build(BuildContext context) {
     final browser = ref.watch(browserControllerProvider);
+    final mediaCount = browser.media.length;
+
     return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 0,
-        title: _UrlChip(url: browser.currentUrl ?? 'Browser'),
-        leading: IconButton(
-          tooltip: 'Back',
-          onPressed: _goBack,
-          icon: const Icon(Icons.arrow_back_rounded),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Forward',
-            onPressed: _goForward,
-            icon: const Icon(Icons.arrow_forward_rounded),
-          ),
-          IconButton(
-            tooltip: 'Reload',
-            onPressed: _reload,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-          if (browser.media.isNotEmpty)
-            IconButton(
-              tooltip: 'Clear sniffed media',
-              onPressed: () =>
-                  ref.read(browserControllerProvider).clearMedia(),
-              icon: const Icon(Icons.cleaning_services_rounded),
-            ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          Column(
-            children: [
-              if (_progress < 100)
-                LinearProgressIndicator(
-                  value: _progress / 100,
-                  minHeight: 2,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ──── Top bar with URL + controls ────
+            Container(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
+              decoration: BoxDecoration(
+                color: AppColors.surface.withValues(alpha: 0.92),
+                border: Border(
+                  bottom: BorderSide(
+                    color: AppColors.border.withValues(alpha: 0.25),
+                    width: 0.5,
+                  ),
                 ),
-              Expanded(
-                child: _lastError != null
-                    ? _BrowserError(
-                        message: _lastError!,
-                        onRetry: () {
-                          setState(() => _lastError = null);
-                          _reload();
-                        },
-                      )
-                    : WebViewWidget(controller: _webController),
               ),
-            ],
-          ),
-          Positioned(
-            right: 16,
-            bottom: 20,
-            child: FloatingDownloadButton(
-              count: browser.media.length,
-              visible: browser.media.isNotEmpty,
-              onTap: () => _showSniffedSheet(context),
+              child: Column(
+                children: [
+                  // URL input bar
+                  Row(
+                    children: [
+                      // Back / Forward
+                      _NavIconButton(
+                        icon: Icons.arrow_back_ios_rounded,
+                        onTap: _goBack,
+                        size: 18,
+                      ),
+                      _NavIconButton(
+                        icon: Icons.arrow_forward_ios_rounded,
+                        onTap: _goForward,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 4),
+                      // URL field
+                      Expanded(
+                        child: Focus(
+                          onFocusChange: (f) => setState(() => _urlBarFocused = f),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 250),
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceHigh,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: _urlBarFocused
+                                    ? AppColors.accent.withValues(alpha: 0.5)
+                                    : AppColors.border.withValues(alpha: 0.4),
+                                width: _urlBarFocused ? 1.2 : 0.8,
+                              ),
+                              boxShadow: _urlBarFocused
+                                  ? [
+                                      BoxShadow(
+                                        color: AppColors.accent
+                                            .withValues(alpha: 0.1),
+                                        blurRadius: 12,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Row(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 10),
+                                  child: Icon(
+                                    browser.snifferActive
+                                        ? Icons.shield_rounded
+                                        : Icons.language_rounded,
+                                    size: 16,
+                                    color: browser.snifferActive
+                                        ? AppColors.success
+                                        : AppColors.textFaint,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _urlBarController,
+                                    textInputAction: TextInputAction.go,
+                                    onSubmitted: _navigateToUrl,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                    decoration: const InputDecoration(
+                                      border: InputBorder.none,
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                                      hintText: 'Search or enter URL…',
+                                      hintStyle: TextStyle(
+                                        fontSize: 13,
+                                        color: AppColors.textFaint,
+                                      ),
+                                      isDense: true,
+                                      filled: false,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      _NavIconButton(
+                        icon: Icons.refresh_rounded,
+                        onTap: _reload,
+                      ),
+                      if (mediaCount > 0)
+                        _NavIconButton(
+                          icon: Icons.cleaning_services_rounded,
+                          onTap: () =>
+                              ref.read(browserControllerProvider).clearMedia(),
+                          size: 18,
+                        ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            // Progress bar — kawaii gradient
+            if (_progress < 100)
+              SizedBox(
+                height: 3,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.borderSubtle,
+                  ),
+                  child: ClipRRect(
+                    child: LinearProgressIndicator(
+                      value: _progress / 100,
+                      backgroundColor: Colors.transparent,
+                      color: AppColors.accent,
+                    ),
+                  ),
+                ),
+              ),
+            // WebView
+            Expanded(
+              child: _lastError != null
+                  ? _BrowserError(
+                      message: _lastError!,
+                      onRetry: () {
+                        setState(() => _lastError = null);
+                        _reload();
+                      },
+                    )
+                  : WebViewWidget(controller: _webController),
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingDownloadButton(
+        count: mediaCount,
+        visible: mediaCount > 0,
+        onTap: () => _showSniffedSheet(context),
       ),
     );
   }
@@ -159,15 +292,51 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 8, 20, 8),
-              child: Text(
-                'Sniffed media on this page',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.accentGradient,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.accent.withValues(alpha: 0.25),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.sensors_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Detected Media',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      Text(
+                        '${items.length} stream${items.length == 1 ? '' : 's'} found on this page',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
             Expanded(
@@ -175,23 +344,40 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                 itemCount: items.length,
                 separatorBuilder: (context, index) =>
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final item = items[index];
-                  return Material(
-                    color: AppColors.surfaceHigh.withOpacity(0.6),
-                    borderRadius: BorderRadius.circular(14),
-                    child: ListTile(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        side: const BorderSide(color: AppColors.border),
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceHigh.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppColors.border.withValues(alpha: 0.4),
+                        width: 0.8,
                       ),
-                      leading: const Icon(
-                        Icons.movie_rounded,
-                        color: AppColors.secondary,
+                    ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.fromLTRB(12, 2, 8, 2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      leading: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          gradient: AppTheme.accentGradient,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.movie_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                       ),
                       title: Text(
-                        item.url,
+                        Uri.tryParse(item.url)?.pathSegments.isNotEmpty == true
+                            ? Uri.parse(item.url).pathSegments.last
+                            : item.url,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -204,17 +390,49 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
                         UrlUtils.displayHost(item.url),
                         style: const TextStyle(
                           fontSize: 11,
-                          color: AppColors.textSecondary,
+                          color: AppColors.textFaint,
                         ),
                       ),
-                      trailing: FilledButton(
-                        onPressed: () {
-                          Navigator.of(sheetContext).pop();
-                          _handleSniffed(item);
-                        },
-                        child: const Text(
-                          'Grab',
-                          style: TextStyle(fontWeight: FontWeight.w800),
+                      trailing: Container(
+                        decoration: BoxDecoration(
+                          gradient: AppTheme.accentGradient,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.accent.withValues(alpha: 0.25),
+                              blurRadius: 8,
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(10),
+                            onTap: () {
+                              Navigator.of(sheetContext).pop();
+                              _handleSniffed(item);
+                            },
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 8),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.download_rounded,
+                                      size: 16, color: Colors.white),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Grab',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 12,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -228,7 +446,16 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
     );
   }
 
+  /// Handles a sniffed media item using on-device merging (no server job).
   Future<void> _handleSniffed(SniffedMedia item) async {
+    if (!UrlUtils.isInstagramUrl(item.url)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.instagramOnly)),
+        );
+      }
+      return;
+    }
     final downloads = ref.read(downloadControllerProvider);
     if (UrlUtils.isDirectMediaUrl(item.url)) {
       await downloads.start(
@@ -250,13 +477,57 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
     if (!mounted) return;
     final result = extract.state.valueOrNull;
     if (result != null && result.formats.isNotEmpty) {
-      final format = await showFormatPickerSheet(context, result);
-      if (format == null) return;
-      await downloads.start(
-        url: format.url,
-        fileName: result.suggestedFilename ?? _fileNameFor(item),
-        isHls: format.isHls,
-      );
+      final selection = await showFormatPickerSheet(context, result);
+      if (selection == null) return;
+
+      final suggested = result.suggestedFilename;
+      final base = suggested == null
+          ? result.title
+          : suggested.replaceAll(RegExp(r'\.[^.]*$'), '');
+
+      if (selection.merged) {
+        final bestVideo = result.bestVideoFormat;
+        final bestAudio = result.bestAudioFormat;
+        if (bestVideo != null) {
+          if (!bestVideo.hasAudio && bestAudio != null) {
+            await downloads.start(
+              url: bestVideo.url,
+              audioUrl: bestAudio.url,
+              fileName: '$base.mp4',
+            );
+          } else {
+            await downloads.start(
+              url: bestVideo.url,
+              fileName: '$base.mp4',
+              isHls: bestVideo.isHls,
+            );
+          }
+        }
+      } else if (selection.audioOnly) {
+        final bestAudio = result.bestAudioFormat;
+        if (bestAudio != null) {
+          await downloads.start(
+            url: bestAudio.url,
+            fileName: '$base.m4a',
+          );
+        }
+      } else if (selection.format != null) {
+        final format = selection.format!;
+        final fileName = result.suggestedFilename ?? _fileNameFor(item);
+        if (format.hasVideo && !format.hasAudio && result.bestAudioFormat != null) {
+          await downloads.start(
+            url: format.url,
+            audioUrl: result.bestAudioFormat!.url,
+            fileName: fileName,
+          );
+        } else {
+          await downloads.start(
+            url: format.url,
+            fileName: fileName,
+            isHls: format.isHls,
+          );
+        }
+      }
       ref.read(libraryControllerProvider).refresh();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -289,29 +560,27 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
   }
 }
 
-class _UrlChip extends StatelessWidget {
-  const _UrlChip({required this.url});
+class _NavIconButton extends StatelessWidget {
+  const _NavIconButton({
+    required this.icon,
+    required this.onTap,
+    this.size = 20,
+  });
 
-  final String url;
+  final IconData icon;
+  final VoidCallback onTap;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    final host = UrlUtils.displayHost(url);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceHigh.withOpacity(0.8),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Text(
-        host,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Icon(icon, size: size, color: AppColors.textSecondary),
         ),
       ),
     );
@@ -328,37 +597,90 @@ class _BrowserError extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(40),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.cloud_off_rounded,
-              size: 44,
-              color: AppColors.textSecondary,
+            // Mascot for error state
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.danger.withValues(alpha: 0.2),
+                    blurRadius: 30,
+                    spreadRadius: 4,
+                  ),
+                ],
+              ),
+              child: ClipOval(
+                child: Image.asset(
+                  'assets/mascot/mascot_browser.jpg',
+                  fit: BoxFit.cover,
+                ),
+              ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 18),
             const Text(
               'Could not load this page',
               style: TextStyle(
+                fontSize: 17,
                 fontWeight: FontWeight.w800,
                 color: AppColors.textPrimary,
+                letterSpacing: -0.3,
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Text(
               message,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 13,
                 color: AppColors.textSecondary,
+                height: 1.4,
               ),
             ),
-            const SizedBox(height: 14),
-            OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Retry'),
+            const SizedBox(height: 20),
+            Container(
+              decoration: BoxDecoration(
+                gradient: AppTheme.accentGradient,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.accent.withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onRetry,
+                  borderRadius: BorderRadius.circular(14),
+                  child: const Padding(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.refresh_rounded,
+                            size: 18, color: Colors.white),
+                        SizedBox(width: 8),
+                        Text(
+                          'Retry',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),

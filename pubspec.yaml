@@ -1,7 +1,7 @@
-﻿name: media_hub
-description: "Media Hub - universal media grabber, HLS stitcher, smart browser and offline media manager."
+name: vidkwaii
+description: "VidKwaii - save Instagram videos and reels you are allowed to download, then play them offline."
 publish_to: "none"
-version: 1.0.0+1
+version: 1.0.4+5
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -23,7 +23,8 @@ dependencies:
   wakelock_plus: ^1.2.8
   shared_preferences: ^2.2.3
   uuid: ^4.4.2
-
+  ffmpeg_kit_flutter_new_min: ^1.0.0
+  unity_ads_plugin: ^0.5.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -31,3 +32,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/branding/
+    - assets/mascot/mascot_hero.jpg
+    - assets/mascot/mascot_empty.jpg
+    - assets/mascot/mascot_browser.jpg

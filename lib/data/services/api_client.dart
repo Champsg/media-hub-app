@@ -18,7 +18,6 @@ class ApiClient {
   ApiClient(this._config) {
     _dio = Dio(
       BaseOptions(
-        baseUrl: _config.baseUrl,
         connectTimeout: const Duration(seconds: 15),
         receiveTimeout: const Duration(seconds: 120),
         headers: {
@@ -32,6 +31,14 @@ class ApiClient {
   final ApiConfig _config;
   late final Dio _dio;
 
+  /// Resolved per request, so a backend address changed at runtime (see
+  /// [AppConfigController.refreshRemote]) takes effect immediately instead of
+  /// only after a restart.
+  String _url(String path) {
+    final base = _config.baseUrl.replaceFirst(RegExp(r'/+$'), '');
+    return '$base${path.startsWith('/') ? path : '/$path'}';
+  }
+
   Future<ExtractResult> extract(
     String url, {
     bool audioOnly = false,
@@ -39,7 +46,7 @@ class ApiClient {
   }) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
-        '/api/v1/extract',
+        _url('/api/v1/extract'),
         data: {
           'url': url,
           'audio_only': audioOnly,
@@ -58,11 +65,69 @@ class ApiClient {
 
   Future<bool> health() async {
     try {
-      final response = await _dio.get<Map<String, dynamic>>('/health');
+      final response = await _dio.get<Map<String, dynamic>>(_url('/health'));
       return response.data?['status'] == 'ok';
     } on DioException {
       return false;
     }
+  }
+
+  /// Asks the backend to download and merge video+audio into a single .mp4
+  /// (server-side FFmpeg), returning a URL the client can chunk-download.
+  Future<MergedFile> mergeMedia(
+    String url, {
+    String? quality,
+  }) async {
+    return _produceFile(
+      '/api/v1/merge',
+      {'url': url, 'quality': quality},
+    );
+  }
+
+  /// Asks the backend to extract the best audio track as .m4a / .mp3.
+  Future<MergedFile> extractAudio(
+    String url, {
+    String format = 'm4a',
+  }) async {
+    return _produceFile(
+      '/api/v1/audio',
+      {'url': url, 'format': format},
+    );
+  }
+
+  Future<MergedFile> _produceFile(
+    String path,
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        _url(path),
+        data: data,
+        options: Options(
+          receiveTimeout: const Duration(minutes: 15),
+        ),
+      );
+      final body = response.data;
+      if (body == null || body['ok'] != true || body['file'] == null) {
+        throw ApiException('Unexpected response from the server.');
+      }
+      final file =
+          MergedFile.fromJson(body['file'] as Map<String, dynamic>);
+      return MergedFile(
+        url: _absolute(file.url),
+        filename: file.filename,
+        size: file.size,
+      );
+    } on DioException catch (e) {
+      throw ApiException(_describeDioError(e));
+    }
+  }
+
+  String _absolute(String path) {
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+    return _url(path);
   }
 
   String _describeDioError(DioException e) {
@@ -81,11 +146,11 @@ class ApiClient {
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
-        return 'Connection timed out. Check the server URL in Settings.';
+        return 'Connection timed out. Check your network and try again.';
       case DioExceptionType.receiveTimeout:
         return 'Server took too long to respond.';
       case DioExceptionType.connectionError:
-        return 'Could not reach the backend server. Check your network and the URL in Settings.';
+        return 'Could not reach the download service. Check your network and try again.';
       default:
         return 'Network error: ${e.message ?? 'unknown'}';
     }

@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
-import '../../core/widgets/glass_card.dart';
 import '../../data/models/download_task.dart';
 import '../../logic/download_controller.dart';
 import '../../logic/providers.dart';
@@ -24,20 +23,41 @@ class DownloadTile extends ConsumerWidget {
             ? (task.receivedBytes / task.totalBytes).clamp(0.0, 1.0)
             : null;
 
-    return GlassCard(
+    return Container(
       padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceHigh,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: AppColors.border.withValues(alpha: 0.3),
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: _colorFor(status).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  _iconFor(status),
+                  color: _colorFor(status),
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   task.fileName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
                   ),
                 ),
@@ -47,14 +67,12 @@ class DownloadTile extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           ClipRRect(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: progress,
-              minHeight: 6,
-              backgroundColor: AppColors.border,
-              color: status == DownloadStatus.failed
-                  ? AppColors.danger
-                  : AppColors.primary,
+              minHeight: 4,
+              backgroundColor: AppColors.border.withValues(alpha: 0.3),
+              color: _colorFor(status),
             ),
           ),
           const SizedBox(height: 8),
@@ -116,6 +134,43 @@ class DownloadTile extends ConsumerWidget {
     );
   }
 
+  IconData _iconFor(DownloadStatus status) {
+    switch (status) {
+      case DownloadStatus.queued:
+        return Icons.hourglass_top_rounded;
+      case DownloadStatus.running:
+        return Icons.downloading_rounded;
+      case DownloadStatus.merging:
+        return Icons.merge_rounded;
+      case DownloadStatus.paused:
+        return Icons.pause_rounded;
+      case DownloadStatus.completed:
+        return Icons.check_rounded;
+      case DownloadStatus.failed:
+        return Icons.close_rounded;
+      case DownloadStatus.canceled:
+        return Icons.block_rounded;
+    }
+  }
+
+  Color _colorFor(DownloadStatus status) {
+    switch (status) {
+      case DownloadStatus.running:
+      case DownloadStatus.queued:
+        return AppColors.primary;
+      case DownloadStatus.merging:
+        return AppColors.secondary;
+      case DownloadStatus.completed:
+        return AppColors.success;
+      case DownloadStatus.failed:
+        return AppColors.danger;
+      case DownloadStatus.paused:
+        return AppColors.warning;
+      case DownloadStatus.canceled:
+        return AppColors.textFaint;
+    }
+  }
+
   List<_TaskAction> _actionsFor(DownloadStatus status) {
     switch (status) {
       case DownloadStatus.running:
@@ -127,6 +182,15 @@ class DownloadTile extends ConsumerWidget {
             color: AppColors.warning,
             onPressed: (c) => c.pause(task.id),
           ),
+          _TaskAction(
+            label: AppStrings.cancel,
+            icon: Icons.close_rounded,
+            color: AppColors.textSecondary,
+            onPressed: (c) => c.cancel(task.id),
+          ),
+        ];
+      case DownloadStatus.merging:
+        return [
           _TaskAction(
             label: AppStrings.cancel,
             icon: Icons.close_rounded,
@@ -188,23 +252,23 @@ class _StatusChip extends StatelessWidget {
     final (label, color) = switch (status) {
       DownloadStatus.queued => ('Queued', AppColors.warning),
       DownloadStatus.running => ('Downloading', AppColors.primary),
+      DownloadStatus.merging => ('Merging...', AppColors.secondary),
       DownloadStatus.paused => ('Paused', AppColors.warning),
-      DownloadStatus.completed => ('Done', AppColors.success),
+      DownloadStatus.completed => ('Downloaded', AppColors.success),
       DownloadStatus.failed => ('Failed', AppColors.danger),
       DownloadStatus.canceled => ('Canceled', AppColors.textSecondary),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.14),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.4)),
       ),
       child: Text(
         label,
         style: TextStyle(
           fontSize: 11,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
           color: color,
         ),
       ),
@@ -245,20 +309,20 @@ class _ActionButton extends StatelessWidget {
       padding: const EdgeInsets.only(left: 8),
       child: TextButton.icon(
         onPressed: onPressed,
-        icon: Icon(icon, size: 18, color: color),
+        icon: Icon(icon, size: 16, color: color),
         label: Text(
           label,
           style: TextStyle(
             fontSize: 12,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
             color: color,
           ),
         ),
         style: TextButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          backgroundColor: color.withOpacity(0.08),
+          backgroundColor: color.withValues(alpha: 0.08),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8),
           ),
         ),
       ),

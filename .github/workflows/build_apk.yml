@@ -1,4 +1,4 @@
-﻿name: Build Android APK
+name: Build Android App Bundle
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    name: Build Release APK
+    name: Build Release AAB
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -31,11 +31,11 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build Release APK
-        run: flutter build apk --release --no-tree-shake-icons --android-skip-build-dependency-validation
+      - name: Build Release App Bundle
+        run: flutter build appbundle --release --no-tree-shake-icons --android-skip-build-dependency-validation
 
-      - name: Upload Release APK
+      - name: Upload Release App Bundle
         uses: actions/upload-artifact@v4
         with:
-          name: MediaHub-Release-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: VidKwaii-Release-AAB
+          path: build/app/outputs/bundle/release/app-release.aab

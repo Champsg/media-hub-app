@@ -209,4 +209,48 @@ class ExtractResult {
       extractor: json['extractor'] as String?,
     );
   }
+
+  MediaFormat? get bestAudioFormat {
+    final audioTracks = formats.where((f) => f.hasAudio && !f.hasVideo).toList();
+    if (audioTracks.isNotEmpty) {
+      return audioTracks.reduce((a, b) => ((a.abr ?? 0) >= (b.abr ?? 0)) ? a : b);
+    }
+    final anyAudio = formats.where((f) => f.hasAudio).toList();
+    if (anyAudio.isNotEmpty) {
+      return anyAudio.reduce((a, b) => ((a.abr ?? 0) >= (b.abr ?? 0)) ? a : b);
+    }
+    return null;
+  }
+
+  MediaFormat? get bestVideoFormat {
+    final withAudio = formats.where((f) => f.hasVideo && f.hasAudio).toList();
+    if (withAudio.isNotEmpty) {
+      return withAudio.reduce((a, b) => ((a.height ?? 0) >= (b.height ?? 0)) ? a : b);
+    }
+    final videoOnly = formats.where((f) => f.hasVideo).toList();
+    if (videoOnly.isNotEmpty) {
+      return videoOnly.reduce((a, b) => ((a.height ?? 0) >= (b.height ?? 0)) ? a : b);
+    }
+    return null;
+  }
+}
+
+/// A file produced server-side (merged video or extracted audio) that the
+/// client can chunk-download like any direct URL.
+class MergedFile {
+  const MergedFile({
+    required this.url,
+    required this.filename,
+    this.size,
+  });
+
+  final String url;
+  final String filename;
+  final int? size;
+
+  factory MergedFile.fromJson(Map<String, dynamic> json) => MergedFile(
+        url: json['url'] as String? ?? '',
+        filename: json['filename'] as String? ?? 'media.mp4',
+        size: (json['size'] as num?)?.toInt(),
+      );
 }

@@ -9,12 +9,16 @@ class EmptyState extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.action,
+    this.mascotAsset = 'assets/mascot/mascot_empty.jpg',
+    this.showMascot = true,
   });
 
   final IconData icon;
   final String title;
   final String? subtitle;
   final Widget? action;
+  final String mascotAsset;
+  final bool showMascot;
 
   @override
   Widget build(BuildContext context) {
@@ -24,17 +28,33 @@ class EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceHigh,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.border),
+            if (showMascot) ...[
+              Container(
+                width: 120,
+                height: 120,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                ),
+                child: ClipOval(
+                  child: Image.asset(
+                    mascotAsset,
+                    fit: BoxFit.cover,
+                  ),
+                ),
               ),
-              child: Icon(icon, size: 32, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 16),
+            ] else
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceHigh,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                      color: AppColors.border.withValues(alpha: 0.5)),
+                ),
+                child: Icon(icon, size: 28, color: AppColors.textFaint),
+              ),
+            const SizedBox(height: 20),
             Text(
               title,
               textAlign: TextAlign.center,
@@ -45,19 +65,19 @@ class EmptyState extends StatelessWidget {
               ),
             ),
             if (subtitle != null) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Text(
                 subtitle!,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 13,
                   color: AppColors.textSecondary,
-                  height: 1.4,
+                  height: 1.5,
                 ),
               ),
             ],
             if (action != null) ...[
-              const SizedBox(height: 18),
+              const SizedBox(height: 20),
               action!,
             ],
           ],

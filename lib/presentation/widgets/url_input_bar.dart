@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/widgets/glass_card.dart';
 
 class UrlInputBar extends StatefulWidget {
   const UrlInputBar({
@@ -46,40 +45,65 @@ class _UrlInputBarState extends State<UrlInputBar> {
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _controller,
-              focusNode: _focusNode,
-              textInputAction: TextInputAction.go,
-              onSubmitted: (_) => _submit(),
-              decoration: InputDecoration(
-                hintText: AppStrings.urlHint,
-                prefixIcon: const Icon(
-                  Icons.link_rounded,
-                  color: AppColors.textFaint,
-                ),
-                suffixIcon: IconButton(
-                  icon: const Icon(
-                    Icons.content_paste_rounded,
-                    color: AppColors.textSecondary,
-                  ),
-                  onPressed: _paste,
-                  tooltip: AppStrings.paste,
-                ),
-              ),
+    return Column(
+      children: [
+        // Text input field
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.surfaceHigh,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: AppColors.border.withValues(alpha: 0.5),
             ),
           ),
-          const SizedBox(width: 10),
-          FilledButton(
+          child: TextField(
+            controller: _controller,
+            focusNode: _focusNode,
+            textInputAction: TextInputAction.go,
+            onSubmitted: (_) => _submit(),
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 14,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Paste your video link here',
+              prefixIcon: const Icon(
+                Icons.link_rounded,
+                color: AppColors.textFaint,
+                size: 20,
+              ),
+              suffixIcon: IconButton(
+                icon: const Icon(
+                  Icons.content_paste_rounded,
+                  color: AppColors.textFaint,
+                  size: 20,
+                ),
+                onPressed: _paste,
+                tooltip: AppStrings.paste,
+              ),
+              filled: false,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Extract button — full width
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton(
             onPressed: widget.loading ? null : _submit,
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1C2541),
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: AppColors.surfaceHigher,
+              elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(24),
               ),
             ),
             child: widget.loading
@@ -87,17 +111,20 @@ class _UrlInputBarState extends State<UrlInputBar> {
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
-                      strokeWidth: 2.4,
+                      strokeWidth: 2,
                       color: Colors.white,
                     ),
                   )
                 : const Text(
-                    AppStrings.extract,
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                    'Extract',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
                   ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

@@ -1,6 +1,6 @@
 /// Download domain models shared by the downloader, stitcher and UI.
 
-enum DownloadStatus { queued, running, paused, completed, failed, canceled }
+enum DownloadStatus { queued, running, merging, paused, completed, failed, canceled }
 
 class DownloadProgress {
   const DownloadProgress({
@@ -33,17 +33,23 @@ class DownloadRequest {
     required this.url,
     required this.fileName,
     required this.saveDirectory,
+    this.audioUrl,
+    this.audioHeaders,
     this.parallelChunks = 4,
     this.isHls = false,
     this.headers,
   });
 
   final String url;
+  final String? audioUrl;
+  final Map<String, String>? audioHeaders;
   final String fileName;
   final String saveDirectory;
   final int parallelChunks;
   final bool isHls;
   final Map<String, String>? headers;
+
+  bool get isDualStream => audioUrl != null && audioUrl!.isNotEmpty;
 }
 
 class DownloadTask {
@@ -54,14 +60,18 @@ class DownloadTask {
     required this.savePath,
     required this.isHls,
     required this.totalChunks,
+    this.audioUrl,
   });
 
   final String id;
   final String url;
+  final String? audioUrl;
   final String fileName;
   final String savePath;
   bool isHls;
   final int totalChunks;
+
+  bool get isDualStream => audioUrl != null && audioUrl!.isNotEmpty;
 
   DownloadStatus status = DownloadStatus.queued;
   int totalBytes = 0;

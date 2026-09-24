@@ -14,7 +14,7 @@ class StorageService {
   Future<Directory> _root() async {
     final base = await getExternalStorageDirectory() ??
         await getApplicationDocumentsDirectory();
-    final root = Directory(p.join(base.path, 'MediaHub'));
+    final root = Directory(p.join(base.path, 'VidKwaii'));
     return root.create(recursive: true);
   }
 

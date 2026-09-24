@@ -28,4 +28,17 @@ class MediaScanner {
       return 0;
     }
   }
+
+  /// Exports a file into the public media collections so gallery apps can see
+  /// it. Returns the MediaStore URI, or null if the export failed.
+  Future<String?> saveToGallery(String path) async {
+    try {
+      return await _channel.invokeMethod<String>(
+        'saveToGallery',
+        {'path': path},
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 }

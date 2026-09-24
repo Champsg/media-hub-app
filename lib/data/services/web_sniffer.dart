@@ -8,19 +8,19 @@ import '../models/download_task.dart';
 class WebSniffer {
   WebSniffer._();
 
-  static const String channelName = 'MediaHubSniffer';
+  static const String channelName = 'VidKwaiiSniffer';
 
   static const String injectionScript = r'''
 (function () {
-  if (window.__mediaHubInstalled) return;
-  window.__mediaHubInstalled = true;
+  if (window.__vidkwaiiInstalled) return;
+  window.__vidkwaiiInstalled = true;
   var seen = {};
   var mediaExt = /\.(mp4|m3u8|m4a|mp3|webm|mov|mkv|ts|aac|ogg|opus|flac|wav)(\?|#|$)/i;
   function report(url, type) {
     try {
       if (!url || seen[url] || !/^https?:/i.test(url)) return;
       seen[url] = true;
-      window.MediaHubSniffer.postMessage(JSON.stringify({ url: url, type: type || 'media' }));
+      window.VidKwaiiSniffer.postMessage(JSON.stringify({ url: url, type: type || 'media' }));
     } catch (e) {}
   }
   function hookMedia(el) {

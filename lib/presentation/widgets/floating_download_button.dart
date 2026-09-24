@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 
-class FloatingDownloadButton extends StatelessWidget {
+class FloatingDownloadButton extends StatefulWidget {
   const FloatingDownloadButton({
     super.key,
     required this.count,
@@ -15,42 +15,90 @@ class FloatingDownloadButton extends StatelessWidget {
   final bool visible;
 
   @override
+  State<FloatingDownloadButton> createState() => _FloatingDownloadButtonState();
+}
+
+class _FloatingDownloadButtonState extends State<FloatingDownloadButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AnimatedOpacity(
-      opacity: visible ? 1 : 0,
-      duration: const Duration(milliseconds: 220),
+      opacity: widget.visible ? 1 : 0,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
       child: AnimatedSlide(
-        offset: visible ? Offset.zero : const Offset(0, 0.5),
-        duration: const Duration(milliseconds: 220),
+        offset: widget.visible ? Offset.zero : const Offset(0, 0.6),
+        duration: const Duration(milliseconds: 260),
         curve: Curves.easeOutCubic,
-        child: Material(
-          color: AppColors.primary,
-          elevation: 12,
-          shadowColor: AppColors.primary.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(18),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.download_done_rounded,
-                    color: Colors.white,
-                    size: 22,
+        child: AnimatedBuilder(
+          animation: _pulseController,
+          builder: (context, child) {
+            final glowIntensity = 0.3 + _pulseController.value * 0.25;
+            return Container(
+              decoration: BoxDecoration(
+                gradient: AppTheme.accentGradient,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.accent.withValues(alpha: glowIntensity),
+                    blurRadius: 20 + _pulseController.value * 10,
+                    offset: const Offset(0, 6),
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '$count media',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                    ),
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.2),
+                    blurRadius: 30,
+                    offset: const Offset(4, 8),
                   ),
                 ],
+              ),
+              child: child,
+            );
+          },
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: widget.onTap,
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.sensors_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${widget.count} media found',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

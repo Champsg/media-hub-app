@@ -1,17 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/services/ad_service.dart';
+
 import '../core/config/api_config.dart';
 import '../data/repositories/media_repository.dart';
 import '../data/services/api_client.dart';
 import '../data/services/downloader_service.dart';
-import '../data/services/whatsapp_vault_service.dart';
 import 'app_config_controller.dart';
 import 'browser_controller.dart';
 import 'clipboard_controller.dart';
 import 'download_controller.dart';
 import 'extract_controller.dart';
 import 'library_controller.dart';
-import 'vault_controller.dart';
 
 /// Mutable runtime settings (base URL, chunk count).
 final apiConfigProvider = Provider<ApiConfig>((ref) => ApiConfig());
@@ -69,13 +69,17 @@ final clipboardControllerProvider = ChangeNotifierProvider<ClipboardController>(
   },
 );
 
-final whatsAppVaultServiceProvider =
-    Provider<WhatsAppVaultService>((ref) => WhatsAppVaultService());
-
-final vaultControllerProvider = ChangeNotifierProvider<VaultController>(
-  (ref) => VaultController(ref.watch(whatsAppVaultServiceProvider)),
-);
-
 final browserControllerProvider = ChangeNotifierProvider<BrowserController>(
   (ref) => BrowserController(),
 );
+
+/// Unity LevelPlay ad service (rewarded ads).
+///
+/// Reading this provider initialises the SDK and starts preloading an ad, so
+/// it is watched once at app start to have an ad ready before it is needed.
+final adServiceProvider = Provider<AdService>((ref) {
+  final service = AdService();
+  service.init();
+  ref.onDispose(service.dispose);
+  return service;
+});

@@ -5,5 +5,5 @@ import 'app.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ProviderScope(child: MediaHubApp()));
+  runApp(const ProviderScope(child: VidKwaiiApp()));
 }

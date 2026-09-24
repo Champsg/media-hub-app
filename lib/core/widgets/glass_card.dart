@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
-/// Frosted, bordered card used across the app.
+/// Simple dark card with subtle border.
 class GlassCard extends StatelessWidget {
   const GlassCard({
     super.key,
@@ -10,9 +10,11 @@ class GlassCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(16),
     this.margin,
     this.onTap,
-    this.radius = 20,
+    this.radius = 16,
     this.borderColor,
     this.gradientColors,
+    this.glowColor,
+    this.blur = 0,
   });
 
   final Widget child;
@@ -22,32 +24,20 @@ class GlassCard extends StatelessWidget {
   final double radius;
   final Color? borderColor;
   final List<Color>? gradientColors;
+  final Color? glowColor;
+  final double blur;
 
   @override
   Widget build(BuildContext context) {
-    final card = Container(
+    return Container(
       margin: margin,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: gradientColors ??
-              [
-                AppColors.surface.withOpacity(0.94),
-                AppColors.surfaceHigh.withOpacity(0.84),
-              ],
-        ),
+        color: AppColors.surfaceHigh,
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(
-          color: borderColor ?? AppColors.border.withOpacity(0.55),
+          color: borderColor ?? AppColors.border.withValues(alpha: 0.4),
+          width: 0.8,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.28),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
-          ),
-        ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(radius),
@@ -55,11 +45,12 @@ class GlassCard extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
+            splashColor: AppColors.primary.withValues(alpha: 0.08),
+            highlightColor: AppColors.primary.withValues(alpha: 0.04),
             child: Padding(padding: padding, child: child),
           ),
         ),
       ),
     );
-    return card;
   }
 }

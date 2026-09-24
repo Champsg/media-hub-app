@@ -49,6 +49,7 @@ class DownloadController extends ChangeNotifier {
         (t) =>
             t.status == DownloadStatus.queued ||
             t.status == DownloadStatus.running ||
+            t.status == DownloadStatus.merging ||
             t.status == DownloadStatus.paused,
       )
       .toList(growable: false);
@@ -56,10 +57,16 @@ class DownloadController extends ChangeNotifier {
   Future<DownloadTask> start({
     required String url,
     required String fileName,
+    String? audioUrl,
+    Map<String, String>? headers,
+    Map<String, String>? audioHeaders,
     bool isHls = false,
   }) {
     return _repository.download(
       url: url,
+      audioUrl: audioUrl,
+      headers: headers,
+      audioHeaders: audioHeaders,
       fileName: fileName,
       isHls: isHls,
       parallelChunks: _config.parallelChunks,

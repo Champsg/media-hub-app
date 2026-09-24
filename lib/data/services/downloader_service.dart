@@ -11,6 +11,7 @@ import '../../core/utils/file_utils.dart';
 import '../../core/utils/url_utils.dart';
 import '../models/download_task.dart';
 import 'hls_stitcher.dart';
+import 'media_merger.dart';
 import 'media_scanner.dart';
 
 class _SpeedSample {
@@ -34,8 +35,9 @@ class ProbeResult {
 
 /// Chunked download manager with pause / resume, parallel range requests and
 /// a broadcast progress stream. HLS playlists are routed to the stitcher.
+/// Dual video+audio streams are merged locally on device using FFmpeg.
 class DownloaderService {
-  DownloaderService({Dio? dio})
+  DownloaderService({Dio? dio, LocalMediaMerger? merger})
       : _dio = dio ??
             Dio(
               BaseOptions(
@@ -45,15 +47,17 @@ class DownloaderService {
                 maxRedirects: 5,
                 headers: {
                   'User-Agent':
-                      'Mozilla/5.0 (Linux; Android 13; MediaHub) '
+                      'Mozilla/5.0 (Linux; Android 13; VidKwaii) '
                           'AppleWebKit/537.36 (KHTML, like Gecko) '
                           'Chrome/120.0 Mobile Safari/537.36',
                 },
               ),
-            );
+            ),
+        _merger = merger ?? const LocalMediaMerger();
 
   final Dio _dio;
   final HlsStitcher _hlsStitcher = HlsStitcher();
+  final LocalMediaMerger _merger;
   final StreamController<DownloadProgress> _progressController =
       StreamController<DownloadProgress>.broadcast();
 
@@ -83,6 +87,7 @@ class DownloaderService {
     final task = DownloadTask(
       id: id,
       url: request.url,
+      audioUrl: request.audioUrl,
       fileName: fileName,
       savePath: savePath,
       isHls: request.isHls,
@@ -146,28 +151,48 @@ class DownloaderService {
     task.status = DownloadStatus.running;
     _emit(task);
     try {
-      final probe = await _probe(task.url, request.headers);
-      task.totalBytes = probe.totalBytes;
-      final isHls = task.isHls || probe.isHlsPlaylist;
-      task.isHls = isHls;
-
-      if (isHls) {
-        await _downloadHls(task, request);
-      } else if (probe.totalBytes > 0 && probe.acceptRanges) {
-        await _downloadParallel(task, request, probe);
+      if (request.isDualStream) {
+        await _downloadDualStreamsAndMerge(task, request);
       } else {
-        await _downloadSequential(task, request);
+        final probe = await _probe(task.url, request.headers);
+        task.totalBytes = probe.totalBytes;
+        final isHls = task.isHls || probe.isHlsPlaylist;
+        task.isHls = isHls;
+
+        if (isHls) {
+          task.status = DownloadStatus.merging;
+          _emit(task);
+          await _downloadHls(task, request);
+        } else if (probe.totalBytes > 0 && probe.acceptRanges) {
+          await _downloadParallel(task, request, probe);
+        } else {
+          await _downloadSequential(task, request);
+        }
       }
 
-      task.status = DownloadStatus.completed;
-      task.receivedBytes = await File(task.savePath).length();
-      _emit(task);
+      final saved = File(task.savePath);
+      if (!await saved.exists() || await saved.length() == 0) {
+        throw DownloaderException(
+          'Downloaded file is empty or missing, please try again.',
+        );
+      }
+
+      // Export to the public gallery / library first, then flip the status.
+      // "Downloaded" is only shown after the merged file is fully saved.
       try {
-        await MediaScanner.instance.scanFile(task.savePath);
+        final galleryUri =
+            await MediaScanner.instance.saveToGallery(task.savePath);
+        if (galleryUri == null) {
+          // Older Android or MediaStore failure: fall back to a plain scan.
+          await MediaScanner.instance.scanFile(task.savePath);
+        }
       } catch (_) {
         // Gallery indexing is best-effort; a completed download must not be
         // marked as failed because the platform channel was unavailable.
       }
+      task.status = DownloadStatus.completed;
+      task.receivedBytes = await saved.length();
+      _emit(task);
     } on DioException catch (e) {
       if (CancelToken.isCancel(e)) {
         task.status = _paused.contains(task.id)
@@ -261,6 +286,97 @@ class DownloaderService {
     return int.tryParse(header.substring(slash + 1)) ?? 0;
   }
 
+  Future<void> _downloadDualStreamsAndMerge(
+    DownloadTask task,
+    DownloadRequest request,
+  ) async {
+    final videoTempPath = '${task.savePath}.temp_video.mp4';
+    final audioTempPath = '${task.savePath}.temp_audio.m4a';
+
+    try {
+      final videoProbe = await _probe(request.url, request.headers);
+      final audioProbe =
+          await _probe(request.audioUrl!, request.audioHeaders ?? request.headers);
+
+      task.totalBytes =
+          (videoProbe.totalBytes > 0 ? videoProbe.totalBytes : 0) +
+              (audioProbe.totalBytes > 0 ? audioProbe.totalBytes : 0);
+      _emit(task);
+
+      // Download video stream
+      await _downloadUrlToFile(
+        task,
+        url: request.url,
+        headers: request.headers,
+        targetPath: videoTempPath,
+      );
+
+      // Download audio stream
+      await _downloadUrlToFile(
+        task,
+        url: request.audioUrl!,
+        headers: request.audioHeaders ?? request.headers,
+        targetPath: audioTempPath,
+      );
+
+      task.status = DownloadStatus.merging;
+      _emit(task);
+
+      final success = await _merger.mergeVideoAndAudio(
+        videoPath: videoTempPath,
+        audioPath: audioTempPath,
+        outputPath: task.savePath,
+      );
+
+      if (!success) {
+        throw DownloaderException(
+          'Failed to merge video and audio with FFmpeg.',
+        );
+      }
+    } finally {
+      await _deleteIfExists(videoTempPath);
+      await _deleteIfExists(audioTempPath);
+    }
+  }
+
+  Future<void> _downloadUrlToFile(
+    DownloadTask task, {
+    required String url,
+    required Map<String, String>? headers,
+    required String targetPath,
+  }) async {
+    final token = CancelToken();
+    _chunkTokens.putIfAbsent(task.id, () => []).add(token);
+    final file = File(targetPath);
+    await file.parent.create(recursive: true);
+
+    final response = await _dio.get<ResponseBody>(
+      url,
+      options: Options(
+        responseType: ResponseType.stream,
+        headers: headers,
+      ),
+      cancelToken: token,
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 206) {
+      throw DownloaderException(
+        'Failed stream download (HTTP ${response.statusCode}).',
+      );
+    }
+
+    final raf = await file.open(mode: FileMode.write);
+    try {
+      await for (final chunk in response.data!.stream) {
+        await raf.writeFrom(chunk);
+        task.receivedBytes += chunk.length;
+        _emit(task);
+      }
+    } finally {
+      await raf.close();
+    }
+  }
+
   Future<void> _downloadParallel(
     DownloadTask task,
     DownloadRequest request,
@@ -276,25 +392,33 @@ class DownloaderService {
 
     final bytes = <int>[];
     for (final path in partPaths) {
-      bytes.add(await File(path).length());
+      final part = File(path);
+      bytes.add(await part.exists() ? await part.length() : 0);
     }
     _chunkBytes[task.id] = bytes;
     task.receivedBytes = bytes.fold(0, (a, b) => a + b);
     _emit(task);
 
     final span = (probe.totalBytes / chunkCount).ceil();
-    await Future.wait([
-      for (var i = 0; i < chunkCount; i++)
-        _downloadRange(
-          task,
-          request,
-          tokens,
-          partPath: partPaths[i],
-          partIndex: i,
-          start: i * span,
-          end: min((i + 1) * span - 1, probe.totalBytes - 1),
-        ),
-    ]);
+    try {
+      await Future.wait([
+        for (var i = 0; i < chunkCount; i++)
+          _downloadRange(
+            task,
+            request,
+            tokens,
+            partPath: partPaths[i],
+            partIndex: i,
+            start: i * span,
+            end: min((i + 1) * span - 1, probe.totalBytes - 1),
+          ),
+      ]);
+    } catch (_) {
+      await _cleanupParts(task);
+      rethrow;
+    }
+    task.status = DownloadStatus.merging;
+    _emit(task);
     await _mergeParts(task, partPaths);
   }
 
@@ -374,7 +498,7 @@ class DownloaderService {
     final token = CancelToken();
     _chunkTokens[task.id] = [token];
     final file = File(task.savePath);
-    final existing = await file.length();
+    final existing = await file.exists() ? await file.length() : 0;
 
     if (existing > 0) {
       final resumeResponse = await _dio.get<ResponseBody>(
